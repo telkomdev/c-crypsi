@@ -6,21 +6,13 @@
 int main(int argc, char** argv) {
     printf("hello\n");
 
-    // unsigned char rand_buf[16];
-    // int rand_res = RAND_bytes(rand_buf, sizeof(rand_buf));
-    // if (rand_res != 1) {
-    //     printf("RAND_bytes error\n");
-    //     return -1;
-    // }
-
-
     char* message = "wuriyanto";
 
     unsigned char* dst_digest;
     int dst_digets_len;
 
     if(crypsi_sha512(message, strlen(message), &dst_digest, &dst_digets_len) != 0) {
-        printf("sha256 error\n");
+        printf("digest error\n");
         return -1;
     }
 
@@ -75,7 +67,7 @@ int main(int argc, char** argv) {
     int dst_len;
 
     if(crypsi_aes_192_cbc_encrypt(key_192, plain_data, strlen(plain_data), &dst, &dst_len) != 0) {
-        printf("encrypt_with_aes_256cbc error\n");
+        printf("encrypt with aes error\n");
         return -1;
     }
 
@@ -88,7 +80,7 @@ int main(int argc, char** argv) {
     int dst_decrypt_len;
 
     if(crypsi_aes_192_cbc_decrypt(key_192, "6417737cf9e0a929a6b12d3d79d4ecad0186609f62adb46fef73900400ff5c6b", strlen("6417737cf9e0a929a6b12d3d79d4ecad0186609f62adb46fef73900400ff5c6b"), &dst_decrypt, &dst_decrypt_len) != 0) {
-        printf("decrypt_with_aes_256_gcm error\n");
+        printf("decrypt with aes error\n");
         return -1;
     }
 
@@ -99,6 +91,23 @@ int main(int argc, char** argv) {
     
     free((void*) dst_decrypt);
     free((void*) dst);
+
+    // hmac --------------------------------------------
+    char* message_hmac = "wuriyanto";
+
+    unsigned char* dst_digest_hmac;
+    int dst_digets_len_hmac;
+
+    if(crypsi_hmac_sha256(key_256, message, strlen(message), &dst_digest_hmac, &dst_digets_len_hmac) != 0) {
+        printf("hmac error\n");
+        return -1;
+    }
+
+    printf("hmac message len: %d\n", dst_digets_len_hmac);
+
+    printf("hmac result: %s\n", dst_digest_hmac);
+
+    free((void*) dst_digest_hmac);
 
     return 0;
 }
