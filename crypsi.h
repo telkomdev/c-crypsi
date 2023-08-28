@@ -115,11 +115,16 @@ int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned cha
 // hmac
 static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, 
     const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len);
 
 unsigned char find_hex_val(unsigned char hx) {
     char c = 0x0;
@@ -187,7 +192,8 @@ int hexdecode(const unsigned char* message, size_t message_len,
 }
 
 // MESSAGE DIGEST
-static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     EVP_MD_CTX* mdctx;
     EVP_MD* md;
 
@@ -269,7 +275,8 @@ int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned cha
 }
 
 // HMAC
-static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, 
+    const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     
     EVP_MD_CTX* mdctx;
     EVP_MD* md;
@@ -341,23 +348,28 @@ static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, con
         return ret;
 }
 
-int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_hmac(CRYPSI_MD5, key, message, message_len, dst, dst_len);
 }
 
-int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_hmac(CRYPSI_SHA1, key, message, message_len, dst, dst_len);
 }
 
-int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_hmac(CRYPSI_SHA256, key, message, message_len, dst, dst_len);
 }
 
-int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_hmac(CRYPSI_SHA384, key, message, message_len, dst, dst_len);
 }
 
-int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_hmac(CRYPSI_SHA512, key, message, message_len, dst, dst_len);
 }
 
