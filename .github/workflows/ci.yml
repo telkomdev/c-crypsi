@@ -24,6 +24,7 @@ jobs:
         run: |
           cmake --version
           gcc --version
+          openssl version -a
       - name: Build Example
         run: make build
       - name: Run example
