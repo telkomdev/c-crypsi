@@ -12,6 +12,7 @@
 #define HEX_STRINGS "0123456789abcdef"
 #define AES_GCM_IV_SIZE 12
 #define AES_GCM_TAG_SIZE 16
+#define HMAC_KEY_MIN_SIZE 32
 
 static const unsigned char HEX_TABLE[][2] = {
     {0x30, 0}, 
@@ -111,6 +112,14 @@ int crypsi_sha256(const unsigned char* message, size_t message_len, unsigned cha
 int crypsi_sha384(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 
+// hmac
+static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+
 unsigned char find_hex_val(unsigned char hx) {
     char c = 0x0;
      for (int j = 0; j < sizeof(HEX_TABLE); j++) {
@@ -176,6 +185,7 @@ int hexdecode(const unsigned char* message, size_t message_len,
         return ret;
 }
 
+// MESSAGE DIGEST
 static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     EVP_MD_CTX* mdctx;
     EVP_MD* md;
@@ -233,7 +243,7 @@ static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* messag
 
     cleanup:
         EVP_MD_CTX_free(mdctx);
-
+        OPENSSL_free(dst_tmp);
         return ret;
 }
 
@@ -255,6 +265,99 @@ int crypsi_sha384(const unsigned char* message, size_t message_len, unsigned cha
 
 int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_digest(CRYPSI_SHA512, message, message_len, dst, dst_len);
+}
+
+// HMAC
+static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+    
+    EVP_MD_CTX* mdctx;
+    EVP_MD* md;
+    EVP_PKEY* pkey;
+
+    int ret = -1;
+    size_t dst_len_tmp = 0;
+    unsigned char* dst_tmp;
+
+    if (strlen(key) < HMAC_KEY_MIN_SIZE) {
+        return ret;
+    }
+
+    switch (alg) {
+    case CRYPSI_MD5:
+        md = (EVP_MD*) EVP_md5();
+        break;
+    case CRYPSI_SHA1:
+        md = (EVP_MD*) EVP_sha1();
+        break;
+    case CRYPSI_SHA256:
+        md = (EVP_MD*) EVP_sha256();
+        break;
+    case CRYPSI_SHA384:
+        md = (EVP_MD*) EVP_sha384();
+        break;
+    case CRYPSI_SHA512:
+        md = (EVP_MD*) EVP_sha512();
+        break;
+    default:
+        return ret;
+    }
+
+	if((mdctx = EVP_MD_CTX_new()) == NULL) {
+        goto cleanup;
+    }
+
+    if(!(pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key, strlen(key)))) {
+        goto cleanup;
+    }
+
+	if(1 != EVP_DigestSignInit(mdctx, NULL, md, NULL, pkey)) {
+        goto cleanup;
+    }
+
+	if(1 != EVP_DigestSignUpdate(mdctx, message, message_len)) {
+        goto cleanup;
+    }
+
+	if((dst_tmp = (unsigned char*) OPENSSL_malloc(EVP_MD_size(md))) == NULL) {
+        goto cleanup;
+    }
+
+	if(1 != EVP_DigestSignFinal(mdctx, dst_tmp, &dst_len_tmp)) {
+        goto cleanup;
+    }
+
+    // encode to hex
+    if(hexencode(dst_tmp, dst_len_tmp, dst, dst_len) != 0) {
+        goto cleanup;
+    }
+
+    ret = 0;
+
+    cleanup:
+        EVP_MD_CTX_free(mdctx);
+        EVP_PKEY_free(pkey);
+        OPENSSL_free(dst_tmp);
+        return ret;
+}
+
+int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_hmac(CRYPSI_MD5, key, message, message_len, dst, dst_len);
+}
+
+int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_hmac(CRYPSI_SHA1, key, message, message_len, dst, dst_len);
+}
+
+int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_hmac(CRYPSI_SHA256, key, message, message_len, dst, dst_len);
+}
+
+int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_hmac(CRYPSI_SHA384, key, message, message_len, dst, dst_len);
+}
+
+int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_hmac(CRYPSI_SHA512, key, message, message_len, dst, dst_len);
 }
 
 // AES
