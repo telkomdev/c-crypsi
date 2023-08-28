@@ -1,6 +1,6 @@
 ## c-crypsi (Crypto Utility for C and C++)
 
-Custom crypto utility that wraps the `openssl` crypto library to make life easier
+Custom crypto utility for C/C++ that wraps the `openssl` crypto library to make life easier
 
 ### Install
 
