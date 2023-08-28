@@ -232,7 +232,7 @@ static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* messag
     ret = 0;
 
     cleanup:
-	    EVP_MD_CTX_free(mdctx);
+        EVP_MD_CTX_free(mdctx);
 
         return ret;
 }
