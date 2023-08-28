@@ -310,7 +310,7 @@ static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key,
         return ret;
     }
 
-	if((mdctx = EVP_MD_CTX_new()) == NULL) {
+    if((mdctx = EVP_MD_CTX_new()) == NULL) {
         goto cleanup;
     }
 
