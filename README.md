@@ -2,6 +2,8 @@
 
 Custom crypto utility for C/C++ that wraps the `openssl` crypto library to make life easier
 
+[![c-crypsi CI](https://github.com/telkomdev/c-crypsi/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/telkomdev/c-crypsi/actions/workflows/ci.yml)
+
 ### Install
 
 Its `header only`, just import to your project
