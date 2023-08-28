@@ -3,9 +3,6 @@
 #include <string.h>
 #include "crypsi.h"
 
-// https://cpp.hotexamples.com/examples/-/-/RAND_bytes/cpp-rand_bytes-function-examples.html
-// https://doctrina.org/Base64-With-OpenSSL-C-API.html
-// https://wiki.openssl.org/index.php/EVP_Message_Digests
 int main(int argc, char** argv) {
     printf("hello\n");
 
@@ -17,30 +14,21 @@ int main(int argc, char** argv) {
     // }
 
 
-    // char* message = "wuriyanto";
+    char* message = "wuriyanto";
 
-    // unsigned char* dst;
-    // int dst_len;
+    unsigned char* dst_digest;
+    int dst_digets_len;
 
-    // if(sha384(message, strlen(message), &dst, &dst_len) != 0) {
-    //     printf("sha256 error\n");
-    //     return -1;
-    // }
+    if(crypsi_sha512(message, strlen(message), &dst_digest, &dst_digets_len) != 0) {
+        printf("sha256 error\n");
+        return -1;
+    }
 
-    // unsigned char* dst_encode;
-    // int dst_encode_len;
+    printf("message len: %d\n", dst_digets_len);
 
-    // if(hexencode(rand_buf, sizeof(rand_buf), &dst_encode, &dst_encode_len) != 0) {
-    //     printf("hexencode error\n");
-    //     return -1;
-    // }
+    printf("digest result: %s\n", dst_digest);
 
-    // printf("message len: %d\n", dst_encode_len);
-
-    // printf("hex result: %s\n", dst_encode);
-
-    // // free((void*) dst);
-    // free((void*) dst_encode);
+    free((void*) dst_digest);
 
     // --------------------------------------------------------------------------
     
@@ -72,19 +60,44 @@ int main(int argc, char** argv) {
     // free((void*) dst_decode);
 
     // -----------------------------------------
-    char key[32] = "abc$#128djdyAgbjau&YAnmcbagryt5x";
-    char* plain_data = "wuriyanto";
+    unsigned char key_128[17] = "abc$#128djdyAgbj";
+    key_128[sizeof(key_128)-1] = 0x0; 
+
+    unsigned char key_192[25] = "abc$#128djdyAgbjau&YAnmc";
+    key_192[sizeof(key_192)-1] = 0x0; 
+
+    unsigned char key_256[33] = "abc$#128djdyAgbjau&YAnmcbagryt5x";
+    key_256[sizeof(key_256)-1] = 0x0; 
+
+    unsigned char* plain_data = "wuriyanto";
 
     unsigned char* dst;
     int dst_len;
 
-    if(encrypt_with_aes_256cbc(key, plain_data, strlen(plain_data), &dst, &dst_len) != 0) {
+    if(crypsi_aes_192_cbc_encrypt(key_192, plain_data, strlen(plain_data), &dst, &dst_len) != 0) {
         printf("encrypt_with_aes_256cbc error\n");
         return -1;
     }
 
-    printf("hex result: %s\n", dst);
+    printf("encrypt result: %s\n", dst);
+    printf("encrypt result len: %d\n", dst_len);
 
+    printf("-----------------------------------------\n");
+
+    unsigned char* dst_decrypt;
+    int dst_decrypt_len;
+
+    if(crypsi_aes_192_cbc_decrypt(key_192, "6417737cf9e0a929a6b12d3d79d4ecad0186609f62adb46fef73900400ff5c6b", strlen("6417737cf9e0a929a6b12d3d79d4ecad0186609f62adb46fef73900400ff5c6b"), &dst_decrypt, &dst_decrypt_len) != 0) {
+        printf("decrypt_with_aes_256_gcm error\n");
+        return -1;
+    }
+
+    printf("decrypt result: %s\n", dst_decrypt);
+    printf("decrypt result len: %ld\n", strlen(dst_decrypt));
+    printf("decrypt result len: %d\n", dst_decrypt_len);
+
+    
+    free((void*) dst_decrypt);
     free((void*) dst);
 
     return 0;
