@@ -113,7 +113,8 @@ int crypsi_sha384(const unsigned char* message, size_t message_len, unsigned cha
 int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 
 // hmac
-static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, 
+    const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_hmac_md5(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_hmac_sha1(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_hmac_sha256(const unsigned char* key, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
