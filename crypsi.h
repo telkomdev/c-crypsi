@@ -221,23 +221,23 @@ static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* messag
         return ret;
     }
 
-	if((mdctx = EVP_MD_CTX_new()) == NULL) {
+    if((mdctx = EVP_MD_CTX_new()) == NULL) {
         goto cleanup;
     }
 
-	if(1 != EVP_DigestInit_ex(mdctx, md, NULL)) {
+    if(1 != EVP_DigestInit_ex(mdctx, md, NULL)) {
         goto cleanup;
     }
 
-	if(1 != EVP_DigestUpdate(mdctx, message, message_len)) {
+    if(1 != EVP_DigestUpdate(mdctx, message, message_len)) {
         goto cleanup;
     }
 
-	if((dst_tmp = (unsigned char *) OPENSSL_malloc(EVP_MD_size(md))) == NULL) {
+    if((dst_tmp = (unsigned char *) OPENSSL_malloc(EVP_MD_size(md))) == NULL) {
         goto cleanup;
     }
 
-	if(1 != EVP_DigestFinal_ex(mdctx, dst_tmp, &dst_len_tmp)) {
+    if(1 != EVP_DigestFinal_ex(mdctx, dst_tmp, &dst_len_tmp)) {
         goto cleanup;
     }
 
@@ -318,19 +318,19 @@ static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key,
         goto cleanup;
     }
 
-	if(1 != EVP_DigestSignInit(mdctx, NULL, md, NULL, pkey)) {
+    if(1 != EVP_DigestSignInit(mdctx, NULL, md, NULL, pkey)) {
         goto cleanup;
     }
 
-	if(1 != EVP_DigestSignUpdate(mdctx, message, message_len)) {
+    if(1 != EVP_DigestSignUpdate(mdctx, message, message_len)) {
         goto cleanup;
     }
 
-	if((dst_tmp = (unsigned char*) OPENSSL_malloc(EVP_MD_size(md))) == NULL) {
+    if((dst_tmp = (unsigned char*) OPENSSL_malloc(EVP_MD_size(md))) == NULL) {
         goto cleanup;
     }
 
-	if(1 != EVP_DigestSignFinal(mdctx, dst_tmp, &dst_len_tmp)) {
+    if(1 != EVP_DigestSignFinal(mdctx, dst_tmp, &dst_len_tmp)) {
         goto cleanup;
     }
 
