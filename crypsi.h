@@ -10,14 +10,32 @@
 #include <openssl/aes.h>
 
 #define HEX_STRINGS "0123456789abcdef"
+#define AES_GCM_IV_SIZE 12
+#define AES_GCM_TAG_SIZE 16
 
 static const unsigned char HEX_TABLE[][2] = {
-    {0x30, 0}, {0x31, 1}, {0x32, 2}, {0x33, 3}, 
-    {0x34, 4}, {0x35, 5}, {0x36, 6}, {0x37, 7}, 
-    {0x38, 8}, {0x39, 9}, {0x61, 10}, {0x62, 11}, 
-    {0x63, 12}, {0x64, 13}, {0x65, 14}, {0x66, 15}, 
-    {0x41, 10}, {0x42, 11}, {0x43, 12}, {0x44, 13}, 
-    {0x45, 14}, {0x46, 15}};
+    {0x30, 0}, 
+    {0x31, 1}, 
+    {0x32, 2}, 
+    {0x33, 3}, 
+    {0x34, 4}, 
+    {0x35, 5}, 
+    {0x36, 6}, 
+    {0x37, 7}, 
+    {0x38, 8}, 
+    {0x39, 9}, 
+    {0x61, 10}, 
+    {0x62, 11}, 
+    {0x63, 12}, 
+    {0x64, 13}, 
+    {0x65, 14}, 
+    {0x66, 15}, 
+    {0x41, 10}, 
+    {0x42, 11}, 
+    {0x43, 12}, 
+    {0x44, 13}, 
+    {0x45, 14}, 
+    {0x46, 15}};
 
 enum crypsi_aes_key {
     CRYPSI_AES_128_KEY = 16,
@@ -38,17 +56,55 @@ enum crypsi_digest_alg {
     CRYPSI_SHA512,
 };
 
-// utilties
+// utilities
 int hexencode(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int hexdecode(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 unsigned char find_hex_val(unsigned char hx);
 
 // AES
-int encrypt_with_aes_256cbc(const unsigned char* key, const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int decrypt_with_aes_256cbc(const unsigned char* key, const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
+static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
+static int crypsi_aes_cbc_decrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
+static int crypsi_aes_gcm_decrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+// AES CBC
+int crypsi_aes_128_cbc_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_192_cbc_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_256_cbc_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+int crypsi_aes_128_cbc_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_192_cbc_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_256_cbc_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+// AES GCM
+int crypsi_aes_128_gcm_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_192_gcm_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_256_gcm_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+int crypsi_aes_128_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_192_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_aes_256_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
 
 // message digest
-static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
+static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, 
+    size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_md5(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_sha1(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_sha256(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
@@ -68,10 +124,12 @@ unsigned char find_hex_val(unsigned char hx) {
 
 int hexencode(const unsigned char* message, size_t message_len, 
     unsigned char** dst, unsigned int* dst_len) {
+    
+    int ret = -1;
     int result_len = message_len*2+1;
     unsigned char* _dst = (unsigned char*) malloc(result_len);
     if (_dst == NULL) {
-        return -1;
+        goto cleanup;
     }
 
     *dst_len = result_len-1;
@@ -84,15 +142,20 @@ int hexencode(const unsigned char* message, size_t message_len,
     _dst[result_len-1] = 0x0;
     *dst = _dst;
 
-    return 0;
+    ret = 0;
+
+    cleanup:
+        return ret;
 }
 
 int hexdecode(const unsigned char* message, size_t message_len, 
     unsigned char** dst, unsigned int* dst_len) {
+    
+    int ret = -1;
     int result_len = message_len/2+1;
     unsigned char* _dst = (unsigned char*) malloc(result_len);
     if (_dst == NULL) {
-        return -1;
+        goto cleanup;
     }
 
     *dst_len = result_len-1;
@@ -107,13 +170,17 @@ int hexdecode(const unsigned char* message, size_t message_len,
     _dst[result_len-1] = 0x0;
     *dst = _dst;
 
-    return 0;
+    ret = 0;
+
+    cleanup:
+        return ret;
 }
 
 static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     EVP_MD_CTX* mdctx;
     EVP_MD* md;
 
+    int ret = -1;
     int dst_len_tmp = 0;
     unsigned char* dst_tmp;
 
@@ -134,31 +201,40 @@ static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* messag
         md = (EVP_MD*) EVP_sha512();
         break;
     default:
-        return -1;
+        return ret;
     }
 
-	if((mdctx = EVP_MD_CTX_new()) == NULL)
-		return -1;
+	if((mdctx = EVP_MD_CTX_new()) == NULL) {
+        goto cleanup;
+    }
 
-	if(1 != EVP_DigestInit_ex(mdctx, md, NULL))
-		return -1;
+	if(1 != EVP_DigestInit_ex(mdctx, md, NULL)) {
+        goto cleanup;
+    }
 
-	if(1 != EVP_DigestUpdate(mdctx, message, message_len))
-		return -1;
+	if(1 != EVP_DigestUpdate(mdctx, message, message_len)) {
+        goto cleanup;
+    }
 
-	if((dst_tmp = (unsigned char *) OPENSSL_malloc(EVP_MD_size(md))) == NULL)
-		return -1;
+	if((dst_tmp = (unsigned char *) OPENSSL_malloc(EVP_MD_size(md))) == NULL) {
+        goto cleanup;
+    }
 
-	if(1 != EVP_DigestFinal_ex(mdctx, dst_tmp, &dst_len_tmp))
-		return -1;
+	if(1 != EVP_DigestFinal_ex(mdctx, dst_tmp, &dst_len_tmp)) {
+        goto cleanup;
+    }
 
-        // encode to hex
-    if(hexencode(dst_tmp, dst_len_tmp, dst, dst_len) != 0)
-        return -1;
+    // encode to hex
+    if(hexencode(dst_tmp, dst_len_tmp, dst, dst_len) != 0) {
+        goto cleanup;
+    }
 
-	EVP_MD_CTX_free(mdctx);
+    ret = 0;
 
-    return 0;
+    cleanup:
+	    EVP_MD_CTX_free(mdctx);
+
+        return ret;
 }
 
 int crypsi_md5(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
@@ -181,66 +257,82 @@ int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned cha
     return crypsi_digest(CRYPSI_SHA512, message, message_len, dst, dst_len);
 }
 
-int encrypt_with_aes_256cbc(const unsigned char* key, const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+// AES
+static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER* cipher;
 
+    int ret = -1;
     int dst_len_tmp = 0;
     int ciphertext_len = 0;
     unsigned char* dst_tmp_raw; 
     unsigned char* dst_tmp;
+    unsigned char iv[AES_BLOCK_SIZE];
+
+    switch (aes_key_size) {
+    case CRYPSI_AES_128_KEY:
+        if (strlen(key) != CRYPSI_AES_128_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_128_cbc();
+        break;
+    case CRYPSI_AES_192_KEY:
+        if (strlen(key) != CRYPSI_AES_192_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_192_cbc();
+        break;
+    case CRYPSI_AES_256_KEY:
+        if (strlen(key) != CRYPSI_AES_256_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_256_cbc();
+        break;
+    default:
+        return ret;
+    }
 
     // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
     int raw_ciphertext_len = data_len + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
 
-    // printf("raw_ciphertext_len: %d\n", raw_ciphertext_len);
-    if((dst_tmp_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL)
-		return -1;
+    if((dst_tmp_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
+        goto cleanup;
+    }
 
-
-    if(!(ctx = EVP_CIPHER_CTX_new())) 
-        return -1;
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        goto cleanup;
+    }
     
-    unsigned char iv[AES_BLOCK_SIZE];
-    if (RAND_bytes(iv, sizeof(iv)) != 1)
-        return -1;
+    if (RAND_bytes(iv, sizeof(iv)) != 1) {
+        goto cleanup;
+    }
     
-    if(EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
-        return -1;
+    if(EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv) != 1) {
+        goto cleanup;
+    }
 
-    if(EVP_EncryptUpdate(ctx, dst_tmp_raw, &dst_len_tmp, data, data_len) != 1)
-        return -1;
+    if(EVP_EncryptUpdate(ctx, dst_tmp_raw, &dst_len_tmp, data, data_len) != 1) {
+        goto cleanup;
+    }
     
     ciphertext_len = dst_len_tmp;
-    printf("ciphertext_len: %d\n", ciphertext_len);
 
-    if(EVP_EncryptFinal_ex(ctx, dst_tmp_raw + dst_len_tmp, &dst_len_tmp) != 1)
-        return -1;
+    if(EVP_EncryptFinal_ex(ctx, dst_tmp_raw + dst_len_tmp, &dst_len_tmp) != 1) {
+        goto cleanup;
+    }
 
     ciphertext_len += dst_len_tmp;
     dst_tmp_raw[raw_ciphertext_len-1] = 0x0;
 
     int result_len_raw = ciphertext_len + sizeof(iv) + 1;
 
-    printf("raw_ciphertext_len: %d\n", raw_ciphertext_len);
-    printf("data_len: %ld\n", data_len);
-    printf("ciphertext_len: %d\n", ciphertext_len);
-    printf("result_len_raw: %d\n", result_len_raw);
-    printf("strlen dst_tmp_raw: %ld\n", strlen(dst_tmp_raw));
-
-    if((dst_tmp = (unsigned char*) malloc(result_len_raw)) == NULL)
-        return -1;
-
-    for(int i = 0; i < raw_ciphertext_len-1; i++) {
-        printf("%d ", dst_tmp_raw[i]);
+    if((dst_tmp = (unsigned char*) malloc(result_len_raw)) == NULL) {
+        goto cleanup;
     }
-
-    printf("\n");
-
-    for(int i = 0; i < sizeof(iv); i++) {
-        printf("%d ", iv[i]);
-    }
-
-    printf("\n");
 
     // concat iv with cipher text
     memcpy(dst_tmp, iv, sizeof(iv));
@@ -249,93 +341,401 @@ int encrypt_with_aes_256cbc(const unsigned char* key, const unsigned char* data,
     dst_tmp[result_len_raw-1] = 0x0;
     
     // encode to hex
-    if(hexencode(dst_tmp, result_len_raw-1, dst, dst_len) != 0)
-        return -1;
+    if(hexencode(dst_tmp, result_len_raw-1, dst, dst_len) != 0) {
+        goto cleanup;
+    }
+
+    ret = 0;
     
     /* Clean up */
-    EVP_CIPHER_CTX_free(ctx);
-    free((void*) dst_tmp);
-    free((void*) dst_tmp_raw);
+    cleanup:
+        EVP_CIPHER_CTX_free(ctx);
+        free((void*) dst_tmp);
+        free((void*) dst_tmp_raw);
 
-    return 0;
+        return ret;
 }
 
-int decrypt_with_aes_256cbc(const unsigned char* key, const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+static int crypsi_aes_cbc_decrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER* cipher;
 
+    int ret = -1;
     int dst_len_tmp = 0;
     int plaintext_len = 0;
     unsigned char* ciphertext_raw; 
     unsigned char* dst_tmp;
-
-    unsigned char* dst_decode;
-    unsigned  dst_decode_len;
-    if(hexdecode(data, data_len, &dst_decode, &dst_decode_len) != 0)
-        return -1;
-    printf("here\n");
     unsigned char iv[AES_BLOCK_SIZE];
-    memcpy(iv, dst_decode, sizeof(iv));
-    
-    for(int i = 0; i < sizeof(iv); i++) {
-        printf("%d ", iv[i]);
-    }
+    unsigned char* dst_decode;
+    int dst_decode_len;
 
-    printf("\n");
+    switch (aes_key_size) {
+    case CRYPSI_AES_128_KEY:
+        if (strlen(key) != CRYPSI_AES_128_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_128_cbc();
+        break;
+    case CRYPSI_AES_192_KEY:
+        if (strlen(key) != CRYPSI_AES_192_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_192_cbc();
+        break;
+    case CRYPSI_AES_256_KEY:
+        if (strlen(key) != CRYPSI_AES_256_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_256_cbc();
+        break;
+    default:
+        return ret;
+    }
+    
+    if(hexdecode(data, data_len, &dst_decode, &dst_decode_len) != 0) {
+        goto cleanup;
+    }
+    
+    memcpy(iv, dst_decode, sizeof(iv));
 
     // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
-    int raw_ciphertext_len = (dst_decode_len - sizeof(iv)) + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
-    raw_ciphertext_len = raw_ciphertext_len-sizeof(iv);
+    int raw_ciphertext_len = dst_decode_len - sizeof(iv) + 1;
 
-    if((ciphertext_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL)
-		return -1;
+    if((ciphertext_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
+        goto cleanup;
+    }
 
     memcpy(ciphertext_raw, dst_decode+sizeof(iv), raw_ciphertext_len);
     ciphertext_raw[raw_ciphertext_len-1] = 0x0;
 
-    printf("raw_ciphertext_len: %d\n", raw_ciphertext_len);
-    for(int i = 0; i < raw_ciphertext_len-1; i++) {
-        printf("%d ", ciphertext_raw[i]);
+    if((dst_tmp = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
+        goto cleanup;
+    }
+    
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        goto cleanup;
+    }
+    
+    if(EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv) != 1) {
+        goto cleanup;
     }
 
-    printf("\n");
-
-    if((dst_tmp = (unsigned char*) malloc(raw_ciphertext_len)) == NULL)
-		return -1;
-
-    if(!(ctx = EVP_CIPHER_CTX_new())) 
-        return -1;
-    
-    if(EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
-        return -1;
-
-    if(EVP_DecryptUpdate(ctx, dst_tmp, &dst_len_tmp, ciphertext_raw, raw_ciphertext_len-1) != 1)
-        return -1;
+    if(EVP_DecryptUpdate(ctx, dst_tmp, &dst_len_tmp, ciphertext_raw, raw_ciphertext_len-1) != 1) {
+        goto cleanup;
+    }
     
     plaintext_len = dst_len_tmp;
     
+    if(EVP_DecryptFinal_ex(ctx, dst_tmp + dst_len_tmp, &dst_len_tmp) != 1) {
+        goto cleanup;
+    }
 
-    if(EVP_DecryptFinal_ex(ctx, dst_tmp + dst_len_tmp, &dst_len_tmp) != 1)
-        return -1;
     plaintext_len += dst_len_tmp;
 
-    printf("plaintext_len: %d\n", plaintext_len);
-
-    if((*dst = (unsigned char*) malloc(plaintext_len+1)) == NULL)
-		return -1;
+    if((*dst = (unsigned char*) malloc(plaintext_len+1)) == NULL) {
+        goto cleanup;
+    }
    
     memcpy(*dst, dst_tmp, plaintext_len);
     // *dst[plaintext_len] = 0x0;
 
     *dst_len = plaintext_len;
 
-    /* Clean up */
-    EVP_CIPHER_CTX_free(ctx);
-    free((void*) dst_decode);
-    free((void*) ciphertext_raw);
-    free((void*) dst_tmp);
-    
+    ret = 0;
 
-    return 0;
+    /* Clean up */
+    cleanup:
+        EVP_CIPHER_CTX_free(ctx);
+        free((void*) dst_decode);
+        free((void*) ciphertext_raw);
+        free((void*) dst_tmp);
+        return ret;
+}
+
+static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER* cipher;
+
+    int ret = -1;
+    int dst_len_tmp = 0;
+    int ciphertext_len = 0;
+    unsigned char* dst_tmp_raw; 
+    unsigned char* dst_tmp;
+    unsigned char iv[AES_GCM_IV_SIZE];
+    unsigned char tag[AES_GCM_TAG_SIZE];
+
+    switch (aes_key_size) {
+    case CRYPSI_AES_128_KEY:
+        if (strlen(key) != CRYPSI_AES_128_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_128_gcm();
+        break;
+    case CRYPSI_AES_192_KEY:
+        if (strlen(key) != CRYPSI_AES_192_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_192_gcm();
+        break;
+    case CRYPSI_AES_256_KEY:
+        if (strlen(key) != CRYPSI_AES_256_KEY) {
+            return ret;
+        }
+        
+        cipher = (EVP_CIPHER*) EVP_aes_256_gcm();
+        break;
+    default:
+        return ret;
+    }
+
+    // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
+    int raw_ciphertext_len = data_len + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
+
+    if((dst_tmp_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL)
+		return -1;
+    
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        goto cleanup;
+    }
+
+    // generate iv
+    if (RAND_bytes(iv, sizeof(iv)) != 1) {
+        goto cleanup;
+    }
+
+    if(EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv) != 1) {
+        goto cleanup;
+    }
+
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, AES_GCM_IV_SIZE, NULL) != 1) {
+        goto cleanup;
+    }
+
+    if(EVP_EncryptUpdate(ctx, dst_tmp_raw, &dst_len_tmp, data, data_len) != 1) {
+        goto cleanup;
+    }
+    
+    ciphertext_len = dst_len_tmp;
+
+    if(EVP_EncryptFinal_ex(ctx, dst_tmp_raw + dst_len_tmp, &dst_len_tmp) != 1) {
+        goto cleanup;
+    }
+
+    ciphertext_len += dst_len_tmp;
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tag), tag) != 1) {
+        goto cleanup;
+    }
+
+    dst_tmp_raw[ciphertext_len] = 0x0;
+
+    int result_len_raw = ciphertext_len + sizeof(iv) + sizeof(tag) + 1;
+
+    if((dst_tmp = (unsigned char*) malloc(result_len_raw)) == NULL) {
+        goto cleanup;
+    }
+
+    // concat iv and tag with cipher text
+    memcpy(dst_tmp, iv, sizeof(iv));
+    memcpy(dst_tmp+sizeof(iv), dst_tmp_raw, ciphertext_len);
+    memcpy(dst_tmp+ciphertext_len+sizeof(iv), tag, sizeof(tag));
+
+    dst_tmp[result_len_raw-1] = 0x0;
+    
+    // encode to hex
+    if(hexencode(dst_tmp, result_len_raw-1, dst, dst_len) != 0) {
+        goto cleanup;
+    }
+
+    ret = 0;
+    
+    /* Clean up */
+    cleanup:
+        EVP_CIPHER_CTX_free(ctx);
+        free((void*) dst_tmp);
+        free((void*) dst_tmp_raw);
+
+        return ret;
+}
+
+static int crypsi_aes_gcm_decrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER* cipher;
+
+    int ret = -1;
+    int dst_len_tmp = 0;
+    int plaintext_len = 0;
+    unsigned char* ciphertext_raw; 
+    unsigned char* dst_tmp;
+    unsigned char iv[AES_GCM_IV_SIZE];
+    unsigned char tag[AES_GCM_TAG_SIZE];
+    unsigned char* dst_decode;
+    int dst_decode_len;
+    
+    switch (aes_key_size) {
+    case CRYPSI_AES_128_KEY:
+        if (strlen(key) != CRYPSI_AES_128_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_128_gcm();
+        break;
+    case CRYPSI_AES_192_KEY:
+        if (strlen(key) != CRYPSI_AES_192_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_192_gcm();
+        break;
+    case CRYPSI_AES_256_KEY:
+        if (strlen(key) != CRYPSI_AES_256_KEY) {
+            return ret;
+        }
+
+        cipher = (EVP_CIPHER*) EVP_aes_256_gcm();
+        break;
+    default:
+        return ret;
+    }
+
+    if(hexdecode(data, data_len, &dst_decode, &dst_decode_len) != 0) {
+        goto cleanup;
+    }
+    
+    // copy iv
+    memcpy(iv, dst_decode, sizeof(iv));
+
+    // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
+    int raw_ciphertext_len = dst_decode_len - (sizeof(iv)+sizeof(tag)) + 1;
+
+    if((ciphertext_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
+        goto cleanup;
+    }
+
+    // copy raw cipher text
+    memcpy(ciphertext_raw, dst_decode+sizeof(iv), raw_ciphertext_len);
+    ciphertext_raw[raw_ciphertext_len-1] = 0x0;
+
+    // copy tag
+    memcpy(tag, dst_decode+raw_ciphertext_len+sizeof(iv)-1, sizeof(tag));
+
+    if((dst_tmp = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
+        goto cleanup;
+    }
+
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        goto cleanup;
+    }
+    
+    if(EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, sizeof(tag), tag) != 1) {
+        goto cleanup;
+    }
+
+    if(EVP_DecryptUpdate(ctx, dst_tmp, &dst_len_tmp, ciphertext_raw, raw_ciphertext_len-1) != 1) {
+        goto cleanup;
+    }
+    
+    plaintext_len = dst_len_tmp;
+    
+    if(EVP_DecryptFinal_ex(ctx, dst_tmp + dst_len_tmp, &dst_len_tmp) != 1) {
+        goto cleanup;
+    }
+
+    plaintext_len += dst_len_tmp;
+
+    if((*dst = (unsigned char*) malloc(plaintext_len+1)) == NULL) {
+        goto cleanup;
+    }
+   
+    memcpy(*dst, dst_tmp, plaintext_len);
+    // *dst[plaintext_len] = 0x0;
+
+    *dst_len = plaintext_len;
+
+    ret = 0;
+
+    /* Clean up */
+    cleanup:
+        EVP_CIPHER_CTX_free(ctx);
+        free((void*) dst_decode);
+        free((void*) ciphertext_raw);
+        free((void*) dst_tmp);
+        
+        return ret;
+}
+
+// AES CBC
+int crypsi_aes_128_cbc_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_cbc_encrypt(CRYPSI_AES_128_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_192_cbc_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_cbc_encrypt(CRYPSI_AES_192_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_256_cbc_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_cbc_encrypt(CRYPSI_AES_256_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_128_cbc_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_cbc_decrypt(CRYPSI_AES_128_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_192_cbc_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_cbc_decrypt(CRYPSI_AES_192_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_256_cbc_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_cbc_decrypt(CRYPSI_AES_256_KEY, key, data, data_len, dst, dst_len);
+}
+
+// AES GCM
+int crypsi_aes_128_gcm_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_gcm_encrypt(CRYPSI_AES_128_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_192_gcm_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_gcm_encrypt(CRYPSI_AES_192_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_256_gcm_encrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_gcm_encrypt(CRYPSI_AES_256_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_128_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_gcm_decrypt(CRYPSI_AES_128_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_192_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_gcm_decrypt(CRYPSI_AES_192_KEY, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_aes_256_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_aes_gcm_decrypt(CRYPSI_AES_256_KEY, key, data, data_len, dst, dst_len);
 }
 
 #endif
