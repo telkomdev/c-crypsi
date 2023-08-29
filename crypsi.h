@@ -81,6 +81,10 @@ enum crypsi_digest_alg {
     CRYPSI_SHA512,
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // utilities
 int hexencode(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int hexdecode(const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len);
@@ -149,6 +153,10 @@ int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message,
     size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, 
     size_t message_len, unsigned char** dst, unsigned int* dst_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 unsigned char find_hex_val(unsigned char hx) {
     char c = 0x0;
