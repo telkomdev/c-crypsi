@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
     unsigned char* dst;
     int dst_len;
 
-    if(crypsi_aes_192_cbc_encrypt(key_192, plain_data, strlen(plain_data), &dst, &dst_len) != 0) {
+    if(crypsi_aes_128_gcm_encrypt(key_128, plain_data, strlen(plain_data), &dst, &dst_len) != 0) {
         printf("encrypt with aes error\n");
         return -1;
     }
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
     unsigned char* dst_decrypt;
     int dst_decrypt_len;
 
-    if(crypsi_aes_192_cbc_decrypt(key_192, "6417737cf9e0a929a6b12d3d79d4ecad0186609f62adb46fef73900400ff5c6b", strlen("6417737cf9e0a929a6b12d3d79d4ecad0186609f62adb46fef73900400ff5c6b"), &dst_decrypt, &dst_decrypt_len) != 0) {
+    if(crypsi_aes_128_gcm_decrypt(key_128, "28f23b5b307e0fdd2003dd0afc5ac9d26632437ff543e9e4947ff69f385e16541724f06baa830fdb", strlen("28f23b5b307e0fdd2003dd0afc5ac9d26632437ff543e9e4947ff69f385e16541724f06baa830fdb"), &dst_decrypt, &dst_decrypt_len) != 0) {
         printf("decrypt with aes error\n");
         return -1;
     }
