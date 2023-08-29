@@ -198,7 +198,7 @@ static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* messag
     EVP_MD* md;
 
     int ret = -1;
-    int dst_len_tmp = 0;
+    unsigned int dst_len_tmp = 0;
     unsigned char* dst_tmp;
 
     switch (alg) {
@@ -286,7 +286,7 @@ static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key,
     size_t dst_len_tmp = 0;
     unsigned char* dst_tmp;
 
-    if (strlen(key) < HMAC_KEY_MIN_SIZE) {
+    if (strlen((char*) key) < HMAC_KEY_MIN_SIZE) {
         return ret;
     }
 
@@ -314,7 +314,7 @@ static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key,
         goto cleanup;
     }
 
-    if(!(pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key, strlen(key)))) {
+    if(!(pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key, strlen((char*) key)))) {
         goto cleanup;
     }
 
@@ -382,27 +382,31 @@ static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     int ret = -1;
     int dst_len_tmp = 0;
     int ciphertext_len = 0;
+    int result_len_raw = 0;
     unsigned char* dst_tmp_raw; 
     unsigned char* dst_tmp;
     unsigned char iv[AES_BLOCK_SIZE];
 
+    // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
+    int raw_ciphertext_len = data_len + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
+
     switch (aes_key_size) {
     case CRYPSI_AES_128_KEY:
-        if (strlen(key) != CRYPSI_AES_128_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_128_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_128_cbc();
         break;
     case CRYPSI_AES_192_KEY:
-        if (strlen(key) != CRYPSI_AES_192_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_192_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_192_cbc();
         break;
     case CRYPSI_AES_256_KEY:
-        if (strlen(key) != CRYPSI_AES_256_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_256_KEY) {
             return ret;
         }
 
@@ -411,9 +415,6 @@ static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     default:
         return ret;
     }
-
-    // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
-    int raw_ciphertext_len = data_len + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
 
     if((dst_tmp_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
         goto cleanup;
@@ -444,7 +445,7 @@ static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     ciphertext_len += dst_len_tmp;
     dst_tmp_raw[raw_ciphertext_len-1] = 0x0;
 
-    int result_len_raw = ciphertext_len + sizeof(iv) + 1;
+    result_len_raw = ciphertext_len + sizeof(iv) + 1;
 
     if((dst_tmp = (unsigned char*) malloc(result_len_raw)) == NULL) {
         goto cleanup;
@@ -480,29 +481,30 @@ static int crypsi_aes_cbc_decrypt(enum crypsi_aes_key aes_key_size, const unsign
     int ret = -1;
     int dst_len_tmp = 0;
     int plaintext_len = 0;
+    int raw_ciphertext_len = 0;
     unsigned char* ciphertext_raw; 
     unsigned char* dst_tmp;
     unsigned char iv[AES_BLOCK_SIZE];
     unsigned char* dst_decode;
-    int dst_decode_len;
+    unsigned int dst_decode_len = 0;
 
     switch (aes_key_size) {
     case CRYPSI_AES_128_KEY:
-        if (strlen(key) != CRYPSI_AES_128_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_128_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_128_cbc();
         break;
     case CRYPSI_AES_192_KEY:
-        if (strlen(key) != CRYPSI_AES_192_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_192_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_192_cbc();
         break;
     case CRYPSI_AES_256_KEY:
-        if (strlen(key) != CRYPSI_AES_256_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_256_KEY) {
             return ret;
         }
 
@@ -519,7 +521,7 @@ static int crypsi_aes_cbc_decrypt(enum crypsi_aes_key aes_key_size, const unsign
     memcpy(iv, dst_decode, sizeof(iv));
 
     // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
-    int raw_ciphertext_len = dst_decode_len - sizeof(iv) + 1;
+    raw_ciphertext_len = dst_decode_len - sizeof(iv) + 1;
 
     if((ciphertext_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
         goto cleanup;
@@ -580,28 +582,32 @@ static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     int ret = -1;
     int dst_len_tmp = 0;
     int ciphertext_len = 0;
+    int result_len_raw = 0;
     unsigned char* dst_tmp_raw; 
     unsigned char* dst_tmp;
     unsigned char iv[AES_GCM_IV_SIZE];
     unsigned char tag[AES_GCM_TAG_SIZE];
 
+    // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
+    int raw_ciphertext_len = data_len + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
+
     switch (aes_key_size) {
     case CRYPSI_AES_128_KEY:
-        if (strlen(key) != CRYPSI_AES_128_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_128_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_128_gcm();
         break;
     case CRYPSI_AES_192_KEY:
-        if (strlen(key) != CRYPSI_AES_192_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_192_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_192_gcm();
         break;
     case CRYPSI_AES_256_KEY:
-        if (strlen(key) != CRYPSI_AES_256_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_256_KEY) {
             return ret;
         }
         
@@ -610,9 +616,6 @@ static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     default:
         return ret;
     }
-
-    // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
-    int raw_ciphertext_len = data_len + (AES_BLOCK_SIZE - data_len%AES_BLOCK_SIZE) + 1;
 
     if((dst_tmp_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL)
 		return -1;
@@ -652,7 +655,7 @@ static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsign
 
     dst_tmp_raw[ciphertext_len] = 0x0;
 
-    int result_len_raw = ciphertext_len + sizeof(iv) + sizeof(tag) + 1;
+    result_len_raw = ciphertext_len + sizeof(iv) + sizeof(tag) + 1;
 
     if((dst_tmp = (unsigned char*) malloc(result_len_raw)) == NULL) {
         goto cleanup;
@@ -689,30 +692,31 @@ static int crypsi_aes_gcm_decrypt(enum crypsi_aes_key aes_key_size, const unsign
     int ret = -1;
     int dst_len_tmp = 0;
     int plaintext_len = 0;
+    int raw_ciphertext_len = 0;
     unsigned char* ciphertext_raw; 
     unsigned char* dst_tmp;
     unsigned char iv[AES_GCM_IV_SIZE];
     unsigned char tag[AES_GCM_TAG_SIZE];
     unsigned char* dst_decode;
-    int dst_decode_len;
+    unsigned int dst_decode_len = 0;
     
     switch (aes_key_size) {
     case CRYPSI_AES_128_KEY:
-        if (strlen(key) != CRYPSI_AES_128_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_128_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_128_gcm();
         break;
     case CRYPSI_AES_192_KEY:
-        if (strlen(key) != CRYPSI_AES_192_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_192_KEY) {
             return ret;
         }
 
         cipher = (EVP_CIPHER*) EVP_aes_192_gcm();
         break;
     case CRYPSI_AES_256_KEY:
-        if (strlen(key) != CRYPSI_AES_256_KEY) {
+        if (strlen((char*) key) != CRYPSI_AES_256_KEY) {
             return ret;
         }
 
@@ -730,7 +734,7 @@ static int crypsi_aes_gcm_decrypt(enum crypsi_aes_key aes_key_size, const unsign
     memcpy(iv, dst_decode, sizeof(iv));
 
     // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
-    int raw_ciphertext_len = dst_decode_len - (sizeof(iv)+sizeof(tag)) + 1;
+    raw_ciphertext_len = dst_decode_len - (sizeof(iv)+sizeof(tag)) + 1;
 
     if((ciphertext_raw = (unsigned char*) malloc(raw_ciphertext_len)) == NULL) {
         goto cleanup;
