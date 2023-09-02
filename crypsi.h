@@ -164,6 +164,8 @@ int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message,
 
 // RSA
 int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf, int* private_key_buf_len, unsigned char** public_key_buf, int* public_key_buf_len);
+int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_key_dst);
+int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_key_dst);
 
 #ifdef __cplusplus
 }
@@ -915,21 +917,21 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf, int
     return ret;
     }
 
-    EVP_PKEY_CTX *keyCtx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
-    if (keyCtx == NULL) {
+    EVP_PKEY_CTX *key_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (key_ctx == NULL) {
         goto cleanup;
     }
 
-    if (EVP_PKEY_keygen_init(keyCtx) != 1) {
+    if (EVP_PKEY_keygen_init(key_ctx) != 1) {
         goto cleanup;
     }
 
-    if (EVP_PKEY_CTX_set_rsa_keygen_bits(keyCtx, size) != 1) {
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(key_ctx, size) != 1) {
         goto cleanup;
     }
 
     EVP_PKEY* pkey = NULL;
-    if (EVP_PKEY_keygen(keyCtx, &pkey) != 1) {
+    if (EVP_PKEY_keygen(key_ctx, &pkey) != 1) {
         goto cleanup;
     }
 
@@ -960,10 +962,72 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf, int
     ret = 0;
 
     cleanup:
-        EVP_PKEY_CTX_free(keyCtx);
+        EVP_PKEY_CTX_free(key_ctx);
         EVP_PKEY_free(pkey);
         BIO_free(private_bio);
         BIO_free(public_bio);
+        return ret;
+}
+
+int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_key_dst) {
+    int ret = -1;
+    
+    // write char array to BIO
+    BIO* rsa_private_bio = BIO_new_mem_buf(buffer, -1);
+    if (rsa_private_bio == NULL) {
+        goto cleanup;
+    }
+
+    // create a RSA object from private key char array
+    RSA* rsa_private_key = NULL;
+    PEM_read_bio_RSAPrivateKey(rsa_private_bio, &rsa_private_key, NULL, NULL);
+
+    // create private key
+    *private_key_dst = EVP_PKEY_new();
+    if (*private_key_dst == NULL) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_assign_RSA(*private_key_dst, rsa_private_key) != 1) {
+        goto cleanup;
+    }
+
+    ret = 0;
+
+    // cleanup
+    cleanup:
+        BIO_free(rsa_private_bio);
+        return ret;
+}
+
+int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_key_dst) {
+    int ret = -1;
+
+    // write char array to BIO
+    BIO* rsa_public_bio = BIO_new_mem_buf(buffer, -1);
+    if (rsa_public_bio == NULL) {
+        goto cleanup;
+    }
+
+    // create a RSA object from public key char array
+    RSA* rsa_public_key = NULL;
+    PEM_read_bio_RSA_PUBKEY(rsa_public_bio, &rsa_public_key, NULL, NULL);
+
+    // create public key
+    *public_key_dst = EVP_PKEY_new();
+    if (*public_key_dst == NULL) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_assign_RSA(*public_key_dst, rsa_public_key) != 1) {
+        goto cleanup;
+    }
+
+    ret = 0;
+
+    // cleanup
+    cleanup:
+        BIO_free(rsa_public_bio);
         return ret;
 }
 
