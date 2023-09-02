@@ -176,30 +176,30 @@ int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_
 int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_key_dst);
 
 // RSA Encryption
-static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key, 
+static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_encrypt_oaep_md5(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_md5(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_encrypt_oaep_sha1(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha1(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_encrypt_oaep_sha256(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha256(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_encrypt_oaep_sha384(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha384(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_encrypt_oaep_sha512(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha512(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
 
-static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key, 
+static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_decrypt_oaep_md5(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_md5(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_decrypt_oaep_sha1(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha1(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_decrypt_oaep_sha256(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha256(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_decrypt_oaep_sha384(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha384(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
-int crypsi_rsa_decrypt_oaep_sha512(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha512(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
 
 #ifdef __cplusplus
@@ -1072,11 +1072,12 @@ int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_ke
 }
 
 // RSA Encryption
-static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key, 
+static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     
     int ret = -1;
     EVP_MD* md;
+    EVP_PKEY* public_key = NULL;
     EVP_PKEY_CTX* enc_ctx;
     size_t dst_encrypt_len;
     unsigned char* dst_encrypt;
@@ -1100,10 +1101,14 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
     default:
         return ret;
     }
+
+    if (crypsi_rsa_load_public_key(key, &public_key) != 0) {
+        goto cleanup;
+    }
     
-    enc_ctx = EVP_PKEY_CTX_new(key, NULL);
+    enc_ctx = EVP_PKEY_CTX_new(public_key, NULL);
     if (EVP_PKEY_encrypt_init(enc_ctx) != 1) {
-        goto cleanup;;
+        goto cleanup;
     }
 
     if (EVP_PKEY_CTX_set_rsa_padding(enc_ctx, RSA_PKCS1_OAEP_PADDING) != 1) {
@@ -1134,15 +1139,17 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
 
     cleanup:
         EVP_PKEY_CTX_free(enc_ctx);
+        EVP_PKEY_free(public_key);
         free((void*) dst_encrypt);
         return ret;
 }
 
-static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key, 
+static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
 
     int ret = -1;
     EVP_MD* md;
+    EVP_PKEY* private_key = NULL;
     EVP_PKEY_CTX* dec_ctx;
     size_t dst_decrypt_len;
     unsigned int dst_decode_len;
@@ -1172,7 +1179,11 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
         goto cleanup;
     }
 
-    dec_ctx = EVP_PKEY_CTX_new(key, NULL);
+    if (crypsi_rsa_load_private_key(key, &private_key) != 0) {
+        goto cleanup;
+    }
+
+    dec_ctx = EVP_PKEY_CTX_new(private_key, NULL);
     if (EVP_PKEY_decrypt_init(dec_ctx) != 1) {
         goto cleanup;
     }
@@ -1203,58 +1214,59 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
 
     cleanup:
         EVP_PKEY_CTX_free(dec_ctx);
+        EVP_PKEY_free(private_key);
         free((void*) dst_decode);
         return ret;
 }
 
 // RSA ENCRYPT
-int crypsi_rsa_encrypt_oaep_md5(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_md5(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_encrypt_oaep(CRYPSI_MD5, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_encrypt_oaep_sha1(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha1(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_encrypt_oaep(CRYPSI_SHA1, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_encrypt_oaep_sha256(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha256(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_encrypt_oaep(CRYPSI_SHA256, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_encrypt_oaep_sha384(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha384(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_encrypt_oaep(CRYPSI_SHA384, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_encrypt_oaep_sha512(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_encrypt_oaep_sha512(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_encrypt_oaep(CRYPSI_SHA512, key, data, data_len, dst, dst_len);
 }
 
 // RSA DECRYPT
-int crypsi_rsa_decrypt_oaep_md5(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_md5(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_decrypt_oaep(CRYPSI_MD5, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_decrypt_oaep_sha1(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha1(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_decrypt_oaep(CRYPSI_SHA1, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_decrypt_oaep_sha256(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha256(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_decrypt_oaep(CRYPSI_SHA256, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_decrypt_oaep_sha384(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha384(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_decrypt_oaep(CRYPSI_SHA384, key, data, data_len, dst, dst_len);
 }
 
-int crypsi_rsa_decrypt_oaep_sha512(EVP_PKEY* key, const unsigned char* data, 
+int crypsi_rsa_decrypt_oaep_sha512(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_rsa_decrypt_oaep(CRYPSI_SHA512, key, data, data_len, dst, dst_len);
 }
