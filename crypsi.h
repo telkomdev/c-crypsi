@@ -31,6 +31,8 @@ THE SOFTWARE.
 
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
 #include <openssl/aes.h>
 
 #define HEX_STRINGS "0123456789abcdef"
@@ -79,6 +81,12 @@ enum crypsi_digest_alg {
     CRYPSI_SHA256,
     CRYPSI_SHA384,
     CRYPSI_SHA512,
+};
+
+enum crypsi_rsa_modulus {
+    CRYPSI_RSA_MODULUS_1024 = 1 << 10,
+    CRYPSI_RSA_MODULUS_2048 = 1 << 11,
+    CRYPSI_RSA_MODULUS_4096 = 1 << 12
 };
 
 #ifdef __cplusplus
@@ -153,6 +161,9 @@ int crypsi_hmac_sha384(const unsigned char* key, const unsigned char* message,
     size_t message_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message, 
     size_t message_len, unsigned char** dst, unsigned int* dst_len);
+
+// RSA
+int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf, int* private_key_buf_len, unsigned char** public_key_buf, int* public_key_buf_len);
 
 #ifdef __cplusplus
 }
@@ -889,6 +900,71 @@ int crypsi_aes_192_gcm_decrypt(const unsigned char* key, const unsigned char* da
 int crypsi_aes_256_gcm_decrypt(const unsigned char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     return crypsi_aes_gcm_decrypt(CRYPSI_AES_256_KEY, key, data, data_len, dst, dst_len);
+}
+
+// RSA
+int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf, int* private_key_buf_len, unsigned char** public_key_buf, int* public_key_buf_len) {
+    int ret = -1;
+
+    switch (size) {
+    case CRYPSI_RSA_MODULUS_1024:
+    case CRYPSI_RSA_MODULUS_2048:
+    case CRYPSI_RSA_MODULUS_4096:
+        break;
+    default:
+    return ret;
+    }
+
+    EVP_PKEY_CTX *keyCtx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (keyCtx == NULL) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_keygen_init(keyCtx) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(keyCtx, size) != 1) {
+        goto cleanup;
+    }
+
+    EVP_PKEY* pkey = NULL;
+    if (EVP_PKEY_keygen(keyCtx, &pkey) != 1) {
+        goto cleanup;
+    }
+
+    // extract private key as string
+    // create a place to dump the IO, in this case in memory
+    BIO* private_bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_PrivateKey(private_bio, pkey, NULL, NULL, 0, 0, NULL);
+
+    // get buffer length
+    int private_key_len = BIO_pending(private_bio);
+    *private_key_buf = (unsigned char*) malloc(private_key_len);
+    BIO_read(private_bio, *private_key_buf, private_key_len);
+
+    *private_key_buf_len = private_key_len;
+    
+    // extract public key as string
+    // create a place to dump the IO, in this case in memory
+    BIO* public_bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_PUBKEY(public_bio, pkey);
+
+    // get buffer length
+    int public_key_len = BIO_pending(public_bio);
+    *public_key_buf = (unsigned char*) malloc(public_key_len);
+    BIO_read(public_bio, *public_key_buf, public_key_len);
+    
+    *public_key_buf_len = public_key_len;
+
+    ret = 0;
+
+    cleanup:
+        EVP_PKEY_CTX_free(keyCtx);
+        EVP_PKEY_free(pkey);
+        BIO_free(private_bio);
+        BIO_free(public_bio);
+        return ret;
 }
 
 #endif
