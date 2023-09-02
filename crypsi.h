@@ -943,6 +943,11 @@ int crypsi_aes_256_gcm_decrypt(const unsigned char* key, const unsigned char* da
 int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf, 
     int* private_key_buf_len, unsigned char** public_key_buf, int* public_key_buf_len) {
     int ret = -1;
+    EVP_PKEY* pkey = NULL;
+    BIO* private_bio;
+    BIO* public_bio;
+    int private_key_len;
+    int public_key_len;
 
     switch (size) {
     case CRYPSI_RSA_MODULUS_1024:
@@ -953,7 +958,7 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
     return ret;
     }
 
-    EVP_PKEY_CTX *key_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    EVP_PKEY_CTX* key_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (key_ctx == NULL) {
         goto cleanup;
     }
@@ -966,18 +971,17 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
         goto cleanup;
     }
 
-    EVP_PKEY* pkey = NULL;
     if (EVP_PKEY_keygen(key_ctx, &pkey) != 1) {
         goto cleanup;
     }
 
     // extract private key as string
     // create a place to dump the IO, in this case in memory
-    BIO* private_bio = BIO_new(BIO_s_mem());
+    private_bio = BIO_new(BIO_s_mem());
     PEM_write_bio_PrivateKey(private_bio, pkey, NULL, NULL, 0, 0, NULL);
 
     // get buffer length
-    int private_key_len = BIO_pending(private_bio);
+    private_key_len = BIO_pending(private_bio);
     *private_key_buf = (unsigned char*) malloc(private_key_len);
     BIO_read(private_bio, *private_key_buf, private_key_len);
 
@@ -985,11 +989,11 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
     
     // extract public key as string
     // create a place to dump the IO, in this case in memory
-    BIO* public_bio = BIO_new(BIO_s_mem());
+    public_bio = BIO_new(BIO_s_mem());
     PEM_write_bio_PUBKEY(public_bio, pkey);
 
     // get buffer length
-    int public_key_len = BIO_pending(public_bio);
+    public_key_len = BIO_pending(public_bio);
     *public_key_buf = (unsigned char*) malloc(public_key_len);
     BIO_read(public_bio, *public_key_buf, public_key_len);
     
@@ -1007,6 +1011,7 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
 
 int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_key_dst) {
     int ret = -1;
+    RSA* rsa_private_key = NULL;
 
     // write char array to BIO
     BIO* rsa_private_bio = BIO_new_mem_buf(buffer, -1);
@@ -1015,7 +1020,6 @@ int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_
     }
 
     // create a RSA object from private key char array
-    RSA* rsa_private_key = NULL;
     PEM_read_bio_RSAPrivateKey(rsa_private_bio, &rsa_private_key, NULL, NULL);
 
     // create private key
@@ -1038,6 +1042,7 @@ int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_
 
 int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_key_dst) {
     int ret = -1;
+    RSA* rsa_public_key = NULL;
 
     // write char array to BIO
     BIO* rsa_public_bio = BIO_new_mem_buf(buffer, -1);
@@ -1046,7 +1051,6 @@ int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_ke
     }
 
     // create a RSA object from public key char array
-    RSA* rsa_public_key = NULL;
     PEM_read_bio_RSA_PUBKEY(rsa_public_bio, &rsa_public_key, NULL, NULL);
 
     // create public key
@@ -1073,6 +1077,7 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
     
     int ret = -1;
     EVP_MD* md;
+    EVP_PKEY_CTX* enc_ctx;
     size_t dst_encrypt_len;
     unsigned char* dst_encrypt;
 
@@ -1096,7 +1101,7 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
         return ret;
     }
     
-    EVP_PKEY_CTX* enc_ctx = EVP_PKEY_CTX_new(key, NULL);
+    enc_ctx = EVP_PKEY_CTX_new(key, NULL);
     if (EVP_PKEY_encrypt_init(enc_ctx) != 1) {
         goto cleanup;;
     }
@@ -1138,6 +1143,7 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
 
     int ret = -1;
     EVP_MD* md;
+    EVP_PKEY_CTX* dec_ctx;
     size_t dst_decrypt_len;
     unsigned int dst_decode_len;
     unsigned char* dst_decode;
@@ -1166,7 +1172,7 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, EVP_PKEY* key,
         goto cleanup;
     }
 
-    EVP_PKEY_CTX* dec_ctx = EVP_PKEY_CTX_new(key, NULL);
+    dec_ctx = EVP_PKEY_CTX_new(key, NULL);
     if (EVP_PKEY_decrypt_init(dec_ctx) != 1) {
         goto cleanup;
     }
