@@ -3,8 +3,7 @@
 #include <string.h>
 #include "../crypsi.h"
 
-char* load_file(char const* path)
-{
+char* load_file(char const* path) {
     char* buffer = 0;
     long length;
     FILE * f = fopen (path, "rb");

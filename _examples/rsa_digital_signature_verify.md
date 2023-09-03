@@ -25,8 +25,7 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-char* load_file(char const* path)
-{
+char* load_file(char const* path) {
     char* buffer = 0;
     long length;
     FILE * f = fopen (path, "rb");
