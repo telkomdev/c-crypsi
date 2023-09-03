@@ -1106,8 +1106,23 @@ int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_
     int ret = -1;
     RSA* rsa_private_key = NULL;
 
+    // key sanitizer
+    char buffer_tmp[strlen((const char*) buffer)+1];
+    int i, j;
+    for(i = 0, j = 0 ; buffer[i] != '\0'; i++){
+        if(buffer[i] == '\\' && buffer[i + 1] == 'n'){
+            buffer_tmp[j] = '\n';
+            i++;
+        } else {
+            buffer_tmp[j] = buffer[i];
+        }
+        j++;
+    }
+
+    buffer_tmp[j] = 0x0;
+
     // write char array to BIO
-    BIO* rsa_private_bio = BIO_new_mem_buf(buffer, -1);
+    BIO* rsa_private_bio = BIO_new_mem_buf(buffer_tmp, -1);
     if (rsa_private_bio == NULL) {
         goto cleanup;
     }
@@ -1142,8 +1157,23 @@ int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_ke
     int ret = -1;
     RSA* rsa_public_key = NULL;
 
+    // key sanitizer
+    char buffer_tmp[strlen((const char*) buffer)+1];
+    int i, j;
+    for(i = 0, j = 0 ; buffer[i] != '\0'; i++){
+        if(buffer[i] == '\\' && buffer[i + 1] == 'n'){
+            buffer_tmp[j] = '\n';
+            i++;
+        } else {
+            buffer_tmp[j] = buffer[i];
+        }
+        j++;
+    }
+
+    buffer_tmp[j] = 0x0;
+
     // write char array to BIO
-    BIO* rsa_public_bio = BIO_new_mem_buf(buffer, -1);
+    BIO* rsa_public_bio = BIO_new_mem_buf(buffer_tmp, -1);
     if (rsa_public_bio == NULL) {
         goto cleanup;
     }
@@ -1561,7 +1591,7 @@ static int crypsi_rsa_verify_sign_pss(enum crypsi_digest_alg alg, const unsigned
         if (dst_decode != NULL) {
             free((void*) dst_decode);
         }
-        
+
         return ret;
 }
 
