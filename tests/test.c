@@ -486,10 +486,10 @@ void test_rsa_encryption() {
     unsigned char* expected = "Hello World 😋";
 
     // load public key
-    unsigned char* rsa_public_key_char = load_file("public_key.txt");
+    unsigned char* rsa_public_key_char = load_file("./testdata/public_key.key");
 
     // load private key
-    unsigned char* rsa_private_key_char = load_file("private_key.txt");
+    unsigned char* rsa_private_key_char = load_file("./testdata/private_key.key");
 
     // ------------------- RSA OAEP MD5 encryption test -------------------
     printf("test RSA OAEP MD5 encryption\n");
@@ -700,10 +700,10 @@ void test_rsa_digital_signature() {
     unsigned char* plain_data = "Hello World 😋";
 
     // load public key
-    unsigned char* rsa_public_key_char = load_file("public_key.txt");
+    unsigned char* rsa_public_key_char = load_file("./testdata/public_key.key");
 
     // load private key
-    unsigned char* rsa_private_key_char = load_file("private_key.txt");
+    unsigned char* rsa_private_key_char = load_file("./testdata/private_key.key");
 
     // ------------------- RSA PSS MD5 signature test -------------------
     printf("test RSA digital signature PSS MD5\n");
