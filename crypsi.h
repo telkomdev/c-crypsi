@@ -301,12 +301,12 @@ int hexdecode(const unsigned char* message, size_t message_len,
 // MESSAGE DIGEST
 static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* message, 
     size_t message_len, unsigned char** dst, unsigned int* dst_len) {
-    EVP_MD_CTX* mdctx;
-    EVP_MD* md;
+    EVP_MD_CTX* mdctx = NULL;
+    EVP_MD* md = NULL;
 
     int ret = -1;
     unsigned int dst_len_tmp = 0;
-    unsigned char* dst_tmp;
+    unsigned char* dst_tmp = NULL;
 
     switch (alg) {
     case CRYPSI_MD5:
@@ -356,8 +356,14 @@ static int crypsi_digest(enum crypsi_digest_alg alg, const unsigned char* messag
     ret = 0;
 
     cleanup:
-        EVP_MD_CTX_free(mdctx);
-        OPENSSL_free(dst_tmp);
+        if (mdctx != NULL) {
+            EVP_MD_CTX_free(mdctx);
+        }
+
+        if (dst_tmp != NULL) {
+            OPENSSL_free(dst_tmp);
+        }
+
         return ret;
 }
 
@@ -385,13 +391,13 @@ int crypsi_sha512(const unsigned char* message, size_t message_len, unsigned cha
 static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key, 
     const unsigned char* message, size_t message_len, unsigned char** dst, unsigned int* dst_len) {
     
-    EVP_MD_CTX* mdctx;
-    EVP_MD* md;
-    EVP_PKEY* pkey;
+    EVP_MD_CTX* mdctx = NULL;
+    EVP_MD* md = NULL;
+    EVP_PKEY* pkey = NULL;
 
     int ret = -1;
     size_t dst_len_tmp = 0;
-    unsigned char* dst_tmp;
+    unsigned char* dst_tmp = NULL;
 
     if (strlen((char*) key) < HMAC_KEY_MIN_SIZE) {
         return ret;
@@ -449,9 +455,18 @@ static int crypsi_hmac(enum crypsi_digest_alg alg, const unsigned char* key,
     ret = 0;
 
     cleanup:
-        EVP_MD_CTX_free(mdctx);
-        EVP_PKEY_free(pkey);
-        OPENSSL_free(dst_tmp);
+        if (mdctx != NULL) {
+            EVP_MD_CTX_free(mdctx);
+        }
+
+        if (pkey != NULL) {
+            EVP_PKEY_free(pkey);
+        }
+
+        if (dst_tmp != NULL) {
+            OPENSSL_free(dst_tmp);
+        }
+
         return ret;
 }
 
@@ -483,15 +498,15 @@ int crypsi_hmac_sha512(const unsigned char* key, const unsigned char* message,
 // AES
 static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
-    EVP_CIPHER_CTX *ctx;
-    EVP_CIPHER* cipher;
+    EVP_CIPHER_CTX *ctx = NULL;
+    EVP_CIPHER* cipher = NULL;
 
     int ret = -1;
     int dst_len_tmp = 0;
     int ciphertext_len = 0;
     int result_len_raw = 0;
-    unsigned char* dst_tmp_raw; 
-    unsigned char* dst_tmp;
+    unsigned char* dst_tmp_raw = NULL; 
+    unsigned char* dst_tmp = NULL;
     unsigned char iv[AES_BLOCK_SIZE];
 
     // After padding and encrypting data, the size of the ciphertext is plaintext_size + (block_size - plaintext_size % block_size)
@@ -573,26 +588,34 @@ static int crypsi_aes_cbc_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     
     /* Clean up */
     cleanup:
-        EVP_CIPHER_CTX_free(ctx);
-        free((void*) dst_tmp);
-        free((void*) dst_tmp_raw);
+        if (ctx != NULL) {
+            EVP_CIPHER_CTX_free(ctx);
+        }
+
+        if (dst_tmp != NULL) {
+            free((void*) dst_tmp);
+        }
+
+        if (dst_tmp_raw != NULL) {
+            free((void*) dst_tmp_raw);
+        }
 
         return ret;
 }
 
 static int crypsi_aes_cbc_decrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
-    EVP_CIPHER_CTX *ctx;
-    EVP_CIPHER* cipher;
+    EVP_CIPHER_CTX *ctx = NULL;
+    EVP_CIPHER* cipher = NULL;
 
     int ret = -1;
     int dst_len_tmp = 0;
     int plaintext_len = 0;
     int raw_ciphertext_len = 0;
-    unsigned char* ciphertext_raw; 
-    unsigned char* dst_tmp;
+    unsigned char* ciphertext_raw = NULL; 
+    unsigned char* dst_tmp = NULL;
     unsigned char iv[AES_BLOCK_SIZE];
-    unsigned char* dst_decode;
+    unsigned char* dst_decode = NULL;
     unsigned int dst_decode_len = 0;
 
     switch (aes_key_size) {
@@ -674,24 +697,36 @@ static int crypsi_aes_cbc_decrypt(enum crypsi_aes_key aes_key_size, const unsign
 
     /* Clean up */
     cleanup:
-        EVP_CIPHER_CTX_free(ctx);
-        free((void*) dst_decode);
-        free((void*) ciphertext_raw);
-        free((void*) dst_tmp);
+        if (ctx != NULL) {
+            EVP_CIPHER_CTX_free(ctx);
+        }
+
+        if (dst_decode != NULL) {
+            free((void*) dst_decode);
+        }
+
+        if (ciphertext_raw != NULL) {
+            free((void*) ciphertext_raw);
+        }
+
+        if (dst_tmp != NULL) {
+            free((void*) dst_tmp);
+        }
+
         return ret;
 }
 
 static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
-    EVP_CIPHER_CTX *ctx;
-    EVP_CIPHER* cipher;
+    EVP_CIPHER_CTX* ctx = NULL;
+    EVP_CIPHER* cipher = NULL;
 
     int ret = -1;
     int dst_len_tmp = 0;
     int ciphertext_len = 0;
     int result_len_raw = 0;
-    unsigned char* dst_tmp_raw; 
-    unsigned char* dst_tmp;
+    unsigned char* dst_tmp_raw = NULL; 
+    unsigned char* dst_tmp = NULL;
     unsigned char iv[AES_GCM_IV_SIZE];
     unsigned char tag[AES_GCM_TAG_SIZE];
 
@@ -785,27 +820,35 @@ static int crypsi_aes_gcm_encrypt(enum crypsi_aes_key aes_key_size, const unsign
     
     /* Clean up */
     cleanup:
-        EVP_CIPHER_CTX_free(ctx);
-        free((void*) dst_tmp);
-        free((void*) dst_tmp_raw);
+        if (ctx != NULL) {
+            EVP_CIPHER_CTX_free(ctx);
+        }
+
+        if (dst_tmp != NULL) {
+            free((void*) dst_tmp);
+        }
+
+        if (dst_tmp_raw != NULL) {
+            free((void*) dst_tmp_raw);
+        }
 
         return ret;
 }
 
 static int crypsi_aes_gcm_decrypt(enum crypsi_aes_key aes_key_size, const unsigned char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
-    EVP_CIPHER_CTX *ctx;
-    EVP_CIPHER* cipher;
+    EVP_CIPHER_CTX* ctx = NULL;
+    EVP_CIPHER* cipher = NULL;
 
     int ret = -1;
     int dst_len_tmp = 0;
     int plaintext_len = 0;
     int raw_ciphertext_len = 0;
-    unsigned char* ciphertext_raw; 
-    unsigned char* dst_tmp;
+    unsigned char* ciphertext_raw = NULL; 
+    unsigned char* dst_tmp = NULL;
     unsigned char iv[AES_GCM_IV_SIZE];
     unsigned char tag[AES_GCM_TAG_SIZE];
-    unsigned char* dst_decode;
+    unsigned char* dst_decode = NULL;
     unsigned int dst_decode_len = 0;
     
     switch (aes_key_size) {
@@ -896,10 +939,21 @@ static int crypsi_aes_gcm_decrypt(enum crypsi_aes_key aes_key_size, const unsign
 
     /* Clean up */
     cleanup:
-        EVP_CIPHER_CTX_free(ctx);
-        free((void*) dst_decode);
-        free((void*) ciphertext_raw);
-        free((void*) dst_tmp);
+        if (ctx != NULL) {
+            EVP_CIPHER_CTX_free(ctx);
+        }
+
+        if (dst_decode != NULL) {
+            free((void*) dst_decode);
+        }
+
+        if (ciphertext_raw != NULL) {
+            free((void*) ciphertext_raw);
+        }
+
+        if (dst_tmp != NULL) {
+            free((void*) dst_tmp);
+        }
         
         return ret;
 }
@@ -971,8 +1025,8 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
     int* private_key_buf_len, unsigned char** public_key_buf, int* public_key_buf_len) {
     int ret = -1;
     EVP_PKEY* pkey = NULL;
-    BIO* private_bio;
-    BIO* public_bio;
+    BIO* private_bio = NULL;
+    BIO* public_bio = NULL;
     int private_key_len;
     int public_key_len;
 
@@ -1029,10 +1083,22 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
     ret = 0;
 
     cleanup:
-        EVP_PKEY_CTX_free(key_ctx);
-        EVP_PKEY_free(pkey);
-        BIO_free(private_bio);
-        BIO_free(public_bio);
+        if (key_ctx != NULL) {
+            EVP_PKEY_CTX_free(key_ctx);
+        }
+
+        if (pkey != NULL) {
+            EVP_PKEY_free(pkey);
+        }
+
+        if (private_bio != NULL) {
+            BIO_free(private_bio);
+        }
+
+        if (public_bio != NULL) {
+            BIO_free(public_bio);
+        }
+
         return ret;
 }
 
@@ -1047,7 +1113,9 @@ int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_
     }
 
     // create a RSA object from private key char array
-    PEM_read_bio_RSAPrivateKey(rsa_private_bio, &rsa_private_key, NULL, NULL);
+    if(!PEM_read_bio_RSAPrivateKey(rsa_private_bio, &rsa_private_key, NULL, NULL)) {
+        goto cleanup;
+    }
 
     // create private key
     *private_key_dst = EVP_PKEY_new();
@@ -1063,7 +1131,10 @@ int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_
 
     // cleanup
     cleanup:
-        BIO_free(rsa_private_bio);
+        if (rsa_private_bio != NULL) {
+            BIO_free(rsa_private_bio);
+        }
+
         return ret;
 }
 
@@ -1078,7 +1149,9 @@ int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_ke
     }
 
     // create a RSA object from public key char array
-    PEM_read_bio_RSA_PUBKEY(rsa_public_bio, &rsa_public_key, NULL, NULL);
+    if(!PEM_read_bio_RSA_PUBKEY(rsa_public_bio, &rsa_public_key, NULL, NULL)) {
+        goto cleanup;
+    }
 
     // create public key
     *public_key_dst = EVP_PKEY_new();
@@ -1094,7 +1167,10 @@ int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_ke
 
     // cleanup
     cleanup:
-        BIO_free(rsa_public_bio);
+        if (rsa_public_bio != NULL) {
+            BIO_free(rsa_public_bio);
+        }
+
         return ret;
 }
 
@@ -1103,11 +1179,11 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, const unsigned ch
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
     
     int ret = -1;
-    EVP_MD* md;
+    EVP_MD* md = NULL;
     EVP_PKEY* public_key = NULL;
-    EVP_PKEY_CTX* enc_ctx;
+    EVP_PKEY_CTX* enc_ctx = NULL;
     size_t dst_encrypt_len;
-    unsigned char* dst_encrypt;
+    unsigned char* dst_encrypt = NULL;
 
     switch (alg) {
     case CRYPSI_MD5:
@@ -1169,9 +1245,18 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, const unsigned ch
     ret = 0;
 
     cleanup:
-        EVP_PKEY_CTX_free(enc_ctx);
-        EVP_PKEY_free(public_key);
-        free((void*) dst_encrypt);
+        if (enc_ctx != NULL) {
+            EVP_PKEY_CTX_free(enc_ctx);
+        }
+
+        if (public_key != NULL) {
+            EVP_PKEY_free(public_key);
+        }
+        
+        if (dst_encrypt != NULL) {
+            free((void*) dst_encrypt);
+        }
+
         return ret;
 }
 
@@ -1179,12 +1264,12 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, const unsigned ch
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
 
     int ret = -1;
-    EVP_MD* md;
+    EVP_MD* md = NULL;
     EVP_PKEY* private_key = NULL;
-    EVP_PKEY_CTX* dec_ctx;
+    EVP_PKEY_CTX* dec_ctx = NULL;
     size_t dst_decrypt_len;
     unsigned int dst_decode_len;
-    unsigned char* dst_decode;
+    unsigned char* dst_decode = NULL;
 
     switch (alg) {
     case CRYPSI_MD5:
@@ -1247,9 +1332,18 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, const unsigned ch
     ret = 0;
 
     cleanup:
-        EVP_PKEY_CTX_free(dec_ctx);
-        EVP_PKEY_free(private_key);
-        free((void*) dst_decode);
+        if (dec_ctx != NULL) {
+            EVP_PKEY_CTX_free(dec_ctx);
+        }
+
+        if (private_key != NULL) {
+            EVP_PKEY_free(private_key);
+        }
+
+        if (dst_decode != NULL) {
+            free((void*) dst_decode);
+        }
+
         return ret;
 }
 
@@ -1311,11 +1405,11 @@ static int crypsi_rsa_sign_pss(enum crypsi_digest_alg alg, const unsigned char* 
     
     int ret = -1;
     EVP_PKEY* private_key = NULL;
-    EVP_MD* md;
+    EVP_MD* md = NULL;
     EVP_PKEY_CTX* sign_pkey_ctx = NULL;
     EVP_MD_CTX* sign_ctx = EVP_MD_CTX_new();
     size_t dst_signature_len;
-    unsigned char* dst_signature;
+    unsigned char* dst_signature = NULL;
 
     switch (alg) {
     case CRYPSI_MD5:
@@ -1379,9 +1473,18 @@ static int crypsi_rsa_sign_pss(enum crypsi_digest_alg alg, const unsigned char* 
 
     ret = 0;
     cleanup:
-        EVP_MD_CTX_free(sign_ctx);
-        EVP_PKEY_free(private_key);
-        free((void*) dst_signature);
+        if (sign_ctx != NULL) {
+            EVP_MD_CTX_free(sign_ctx);
+        }
+
+        if (private_key != NULL) {
+            EVP_PKEY_free(private_key);
+        }
+
+        if (dst_signature != NULL) {
+            free((void*) dst_signature);
+        }
+
         return ret;
 }
 
@@ -1393,12 +1496,12 @@ static int crypsi_rsa_verify_sign_pss(enum crypsi_digest_alg alg, const unsigned
     // succeed with invalid signature = 0
     // succeed with valid signature = 1
     int ret = -1;
-    EVP_MD* md;
+    EVP_MD* md = NULL;
     EVP_PKEY* public_key = NULL;
     EVP_PKEY_CTX* verify_pkey_ctx = NULL;
     EVP_MD_CTX* verify_ctx = EVP_MD_CTX_new();
     unsigned int dst_decode_len;
-    unsigned char* dst_decode;
+    unsigned char* dst_decode = NULL;
 
     switch (alg) {
     case CRYPSI_MD5:
@@ -1447,9 +1550,18 @@ static int crypsi_rsa_verify_sign_pss(enum crypsi_digest_alg alg, const unsigned
     ret = EVP_DigestVerifyFinal(verify_ctx, dst_decode, dst_decode_len);
 
     cleanup:
-        EVP_MD_CTX_free(verify_ctx);
-        EVP_PKEY_free(public_key);
-        free((void*) dst_decode);
+        if (verify_ctx != NULL) {
+            EVP_MD_CTX_free(verify_ctx);
+        }
+
+        if (public_key != NULL) {
+            EVP_PKEY_free(public_key);
+        }
+
+        if (dst_decode != NULL) {
+            free((void*) dst_decode);
+        }
+        
         return ret;
 }
 
