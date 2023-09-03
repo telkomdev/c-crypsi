@@ -89,8 +89,6 @@ int main(int argc, char** argv)
 
     printf("digest result: %s\n", dst_digest);
     
-    printf("__cplusplus: %ld\n", __cplusplus);
-
     delete dst_digest;
 
     return 0;
