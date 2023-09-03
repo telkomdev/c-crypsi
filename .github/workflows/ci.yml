@@ -25,7 +25,7 @@ jobs:
           cmake --version
           gcc --version
           openssl version -a
-      - name: Build Example
-        run: make build
-      - name: Run example
-        run: ./app
+      - name: Build Test
+        run: make buildtest
+      - name: Run Test
+        run: ./test
