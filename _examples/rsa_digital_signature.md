@@ -19,7 +19,6 @@ int main(int argc, char** argv) {
     unsigned int dst_signature_len;
     unsigned char* dst_signature;
 
-    // Determine the size of the output
     if (crypsi_rsa_sign_pss_sha256(rsa_private_key_char, message, strlen(message), &dst_signature, &dst_signature_len) != 0) {
         printf("crypsi_rsa_sign_pss_sha256 failed\n");
         exit(1);
@@ -27,7 +26,7 @@ int main(int argc, char** argv) {
 
     printf("rsa signature result: %s\n", dst_signature);
 
-    
+    free((void*) dst_signature);
     free((void*) rsa_private_key_char);
 
     return 0;

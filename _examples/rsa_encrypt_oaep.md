@@ -20,7 +20,6 @@ int main(int argc, char** argv) {
     unsigned int dst_encrypt_len;
     unsigned char* dst_encrypt;
 
-    // Determine the size of the output
     if (crypsi_rsa_encrypt_oaep_md5(rsa_public_key_char, message, strlen(message), &dst_encrypt, &dst_encrypt_len) != 0) {
         printf("crypsi_rsa_encrypt_oaep_md5 failed\n");
         exit(1);
