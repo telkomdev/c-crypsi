@@ -175,7 +175,7 @@ int crypsi_rsa_generate_key_pairs(int size, unsigned char** private_key_buf,
 int crypsi_rsa_load_private_key(const unsigned char* buffer, EVP_PKEY** private_key_dst);
 int crypsi_rsa_load_public_key(const unsigned char* buffer, EVP_PKEY** public_key_dst);
 
-// RSA Encryption
+// RSA Encryption with OAEP (Optimal Asymmetric Encryption Padding)
 static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, char* key, 
     const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_rsa_encrypt_oaep_md5(char* key, const unsigned char* data, 
@@ -201,6 +201,33 @@ int crypsi_rsa_decrypt_oaep_sha384(char* key, const unsigned char* data,
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
 int crypsi_rsa_decrypt_oaep_sha512(char* key, const unsigned char* data, 
     size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+// RSA DIGITAL SIGNATURE with PSS padding
+static int crypsi_rsa_sign_pss(enum crypsi_digest_alg alg, char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_rsa_sign_pss_md5(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_rsa_sign_pss_sha1(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_rsa_sign_pss_sha256(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_rsa_sign_pss_sha384(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+int crypsi_rsa_sign_pss_sha512(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len);
+
+static int crypsi_rsa_verify_sign_pss(enum crypsi_digest_alg alg, char* key, 
+    const unsigned char* data, size_t data_len, unsigned char* signature, size_t signature_len);
+int crypsi_rsa_verify_sign_pss_md5(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len);
+int crypsi_rsa_verify_sign_pss_sha1(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len);
+int crypsi_rsa_verify_sign_pss_sha256(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len);
+int crypsi_rsa_verify_sign_pss_sha384(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len);
+int crypsi_rsa_verify_sign_pss_sha512(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len);
 
 #ifdef __cplusplus
 }
@@ -1125,6 +1152,10 @@ static int crypsi_rsa_encrypt_oaep(enum crypsi_digest_alg alg, char* key,
     }
 
     dst_encrypt = (unsigned char*) malloc((dst_encrypt_len+1)*sizeof(char));
+    if (dst_encrypt == NULL) {
+        goto cleanup;
+    }
+
     if (EVP_PKEY_encrypt(enc_ctx, dst_encrypt, &dst_encrypt_len, data, data_len) != 1) {
         goto cleanup;
     }
@@ -1202,6 +1233,9 @@ static int crypsi_rsa_decrypt_oaep(enum crypsi_digest_alg alg, char* key,
     }
 
     *dst = (unsigned char*) malloc((dst_decrypt_len+1)*sizeof(char));
+    if (*dst == NULL) {
+        goto cleanup;
+    }
 
     if (EVP_PKEY_decrypt(dec_ctx, *dst, &dst_decrypt_len, dst_decode, dst_decode_len) != 1) {
         goto cleanup;
@@ -1271,4 +1305,203 @@ int crypsi_rsa_decrypt_oaep_sha512(char* key, const unsigned char* data,
     return crypsi_rsa_decrypt_oaep(CRYPSI_SHA512, key, data, data_len, dst, dst_len);
 }
 
+// RSA DIGITAL SIGNATURE
+static int crypsi_rsa_sign_pss(enum crypsi_digest_alg alg, char* key, 
+    const unsigned char* data, size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    
+    int ret = -1;
+    EVP_PKEY* private_key = NULL;
+    EVP_MD* md;
+    EVP_PKEY_CTX* sign_pkey_ctx = NULL;
+    EVP_MD_CTX* sign_ctx = EVP_MD_CTX_new();
+    size_t dst_signature_len;
+    unsigned char* dst_signature;
+
+    switch (alg) {
+    case CRYPSI_MD5:
+        md = (EVP_MD*) EVP_md5();
+        break;
+    case CRYPSI_SHA1:
+        md = (EVP_MD*) EVP_sha1();
+        break;
+    case CRYPSI_SHA256:
+        md = (EVP_MD*) EVP_sha256();
+        break;
+    case CRYPSI_SHA384:
+        md = (EVP_MD*) EVP_sha384();
+        break;
+    case CRYPSI_SHA512:
+        md = (EVP_MD*) EVP_sha512();
+        break;
+    default:
+        return ret;
+    }
+
+    if (crypsi_rsa_load_private_key(key, &private_key) != 0) {
+        goto cleanup;
+    }
+
+    if (EVP_DigestSignInit(sign_ctx, &sign_pkey_ctx, md, NULL, private_key) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_padding(sign_pkey_ctx, RSA_PKCS1_PSS_PADDING) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_pss_saltlen(sign_pkey_ctx, RSA_PSS_SALTLEN_DIGEST) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_DigestSignUpdate(sign_ctx, data, data_len) != 1) {
+        goto cleanup;
+    }
+
+    // Determine the size of the output
+    if (EVP_DigestSignFinal(sign_ctx, NULL, &dst_signature_len) != 1) {
+        goto cleanup;
+    }
+
+    dst_signature = (unsigned char*) malloc((dst_signature_len+1)*sizeof(char));
+    if (dst_signature == NULL) {
+        goto cleanup;
+    }
+
+    if (EVP_DigestSignFinal(sign_ctx, dst_signature, &dst_signature_len) != 1) {
+        goto cleanup;
+    }
+
+    dst_signature[dst_signature_len] = 0x0;
+
+    if(hexencode(dst_signature, dst_signature_len, dst, dst_len) != 0) {
+        goto cleanup;
+    }
+
+    ret = 0;
+    cleanup:
+        EVP_MD_CTX_free(sign_ctx);
+        EVP_PKEY_free(private_key);
+        free((void*) dst_signature);
+        return ret;
+}
+
+static int crypsi_rsa_verify_sign_pss(enum crypsi_digest_alg alg, char* key, 
+    const unsigned char* data, size_t data_len, unsigned char* signature, size_t signature_len) {
+    
+    // this function will return
+    // error = -1
+    // succeed with invalid signature = 0
+    // succeed with valid signature = 1
+    int ret = -1;
+    EVP_MD* md;
+    EVP_PKEY* public_key = NULL;
+    EVP_PKEY_CTX* verify_pkey_ctx = NULL;
+    EVP_MD_CTX* verify_ctx = EVP_MD_CTX_new();
+    unsigned int dst_decode_len;
+    unsigned char* dst_decode;
+
+    switch (alg) {
+    case CRYPSI_MD5:
+        md = (EVP_MD*) EVP_md5();
+        break;
+    case CRYPSI_SHA1:
+        md = (EVP_MD*) EVP_sha1();
+        break;
+    case CRYPSI_SHA256:
+        md = (EVP_MD*) EVP_sha256();
+        break;
+    case CRYPSI_SHA384:
+        md = (EVP_MD*) EVP_sha384();
+        break;
+    case CRYPSI_SHA512:
+        md = (EVP_MD*) EVP_sha512();
+        break;
+    default:
+        return ret;
+    }
+
+    if (crypsi_rsa_load_public_key(key, &public_key) != 0) {
+        goto cleanup;
+    }
+
+    if(hexdecode(signature, signature_len, &dst_decode, &dst_decode_len) != 0) {
+        goto cleanup;
+    }
+
+    if (EVP_DigestVerifyInit(verify_ctx, &verify_pkey_ctx, md, NULL, public_key) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_padding(verify_pkey_ctx, RSA_PKCS1_PSS_PADDING) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_pss_saltlen(verify_pkey_ctx, RSA_PSS_SALTLEN_DIGEST) != 1) {
+        goto cleanup;
+    }
+
+    if (EVP_DigestVerifyUpdate(verify_ctx, data, data_len) != 1) {
+        goto cleanup;
+    }
+
+    ret = EVP_DigestVerifyFinal(verify_ctx, dst_decode, dst_decode_len);
+
+    cleanup:
+        EVP_MD_CTX_free(verify_ctx);
+        EVP_PKEY_free(public_key);
+        free((void*) dst_decode);
+        return ret;
+}
+
+// RSA DIGITAL SIGNATURE (SIGN OPERATION)
+int crypsi_rsa_sign_pss_md5(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_rsa_sign_pss(CRYPSI_MD5, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_rsa_sign_pss_sha1(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_rsa_sign_pss(CRYPSI_SHA1, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_rsa_sign_pss_sha256(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_rsa_sign_pss(CRYPSI_SHA256, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_rsa_sign_pss_sha384(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_rsa_sign_pss(CRYPSI_SHA384, key, data, data_len, dst, dst_len);
+}
+
+int crypsi_rsa_sign_pss_sha512(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char** dst, unsigned int* dst_len) {
+    return crypsi_rsa_sign_pss(CRYPSI_SHA512, key, data, data_len, dst, dst_len);
+}
+
+// RSA DIGITAL SIGNATURE (VERIFY SIGNATURE OPERATION)
+int crypsi_rsa_verify_sign_pss_md5(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len) {
+    return crypsi_rsa_verify_sign_pss(CRYPSI_MD5, key, data, data_len, signature, signature_len);
+}
+
+int crypsi_rsa_verify_sign_pss_sha1(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len) {
+    return crypsi_rsa_verify_sign_pss(CRYPSI_SHA1, key, data, data_len, signature, signature_len);
+}
+
+int crypsi_rsa_verify_sign_pss_sha256(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len) {
+    return crypsi_rsa_verify_sign_pss(CRYPSI_SHA256, key, data, data_len, signature, signature_len);
+}
+
+int crypsi_rsa_verify_sign_pss_sha384(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len) {
+    return crypsi_rsa_verify_sign_pss(CRYPSI_SHA384, key, data, data_len, signature, signature_len);
+}
+
+int crypsi_rsa_verify_sign_pss_sha512(char* key, const unsigned char* data, 
+    size_t data_len, unsigned char* signature, size_t signature_len) {
+    return crypsi_rsa_verify_sign_pss(CRYPSI_SHA512, key, data, data_len, signature, signature_len);
+}
 #endif
