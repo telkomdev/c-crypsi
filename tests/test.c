@@ -24,6 +24,29 @@ char* load_file(char const* path) {
     return buffer;
 }
 
+char* load_file_with_size(char const* path, long* length_dst) {
+    char* buffer = 0;
+    long length;
+    FILE * f = fopen (path, "rb");
+
+    if (f != NULL) {
+      fseek (f, 0, SEEK_END);
+      length = ftell (f);
+      fseek (f, 0, SEEK_SET);
+      buffer = (char*) malloc((length+1)*sizeof(char));
+      if (buffer) {
+        fread(buffer, sizeof(char), length, f);
+      }
+
+      fclose(f);
+    }
+
+    buffer[length] = 0x0;
+    *length_dst = length;
+
+    return buffer;
+}
+
 void test_digest() {
     printf("test Digest\n");
 
@@ -833,12 +856,41 @@ void test_rsa_digital_signature() {
     // ------------------- RSA PSS SHA512 signature test end -------------------
 }
 
+void test_rsa_digital_signature_file_stream() {
+    printf("test RSA digital signature file stream\n");
+
+    long burger_stream_md5_length = 0;
+
+    // load public key
+    unsigned char* rsa_public_key_char = load_file("./testdata/public_key.key");
+
+    // load file
+    unsigned char* burger_stream_md5 = load_file_with_size("./testdata/burger.png", &burger_stream_md5_length);
+
+    // ------------------- RSA PSS MD5 signature test -------------------
+    printf("test RSA digital signature PSS MD5 file stream\n");
+    unsigned char* dst_signature_md5 = "8041cad4c4ac4c96fd54b42dc199f72535c60645a2e6b293018d9973f7241dc92485fdeda54a22dc733d1a9213a3bc6992150ae7ecb567a2f54779c7605a19af48562ef23064246e3db1631fa55e4c318c44d8c9be1b5dd8fe4f3b20d46d1e332f8d55aa845b430bb7d98766acc51c747b77e8e8ba62116ffd817a1c8e9f0636bf11498ea25b52d455c1b8baa72edc710598dba7a5f55b41fe2f3bb1c298a5785e12db5e6658da0d2dc42ab2850ee95c1ddabc8834e71c4588d67c1fd88be42c912bbe8bdd9cbcccdb60cbfe9a9f144df834b34f2d438ddfe7ab9dca1883928e6db200864dd479c396f4023972c2f7fb05049b475aabe1df1d42c8cdf3259881";
+
+    if(crypsi_rsa_verify_sign_pss_md5(rsa_public_key_char, burger_stream_md5, burger_stream_md5_length, dst_signature_md5, strlen(dst_signature_md5)) != 1) {
+        printf("crypsi_rsa_sign_pss_md5 sign and verify file stream test failed\n");
+        free((void*) rsa_public_key_char);
+        free((void*) burger_stream_md5);
+        exit(-1);
+    }
+
+    free((void*) burger_stream_md5);
+    printf("\n");
+    // ------------------- RSA PSS MD5 signature test end -------------------
+
+    free((void*) rsa_public_key_char);
+} 
+
 int main(int argc, char** argv) {
     test_digest();
     test_hmac();
     test_aes_encryption();
     test_rsa_encryption();
     test_rsa_digital_signature();
-    
+    test_rsa_digital_signature_file_stream();
     return 0;
 }
