@@ -25,9 +25,6 @@ int main(int argc, char** argv) {
 - PostgreSQL https://github.com/telkomdev/pgcrypsi
 - MySQL https://github.com/telkomdev/crypsi-mysql-udf
 
-### Usage
-todo
-
 ### Features
 - Asymmetric encryption with RSA ✔️
 - Generate RSA private and public key ✔️
@@ -36,7 +33,7 @@ todo
 - Message authentication code with HMAC ✔️
 - Generate Hash with Common DIGEST Algorithm ✔️
 
-#### Example
+#### Usage
 C
 ```c
 #include <stdio.h>
